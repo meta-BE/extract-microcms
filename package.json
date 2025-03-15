@@ -1,0 +1,17 @@
+{
+  "name": "extract-microcms",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node index.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "dotenv": "^16.3.1",
+    "microcms-js-sdk": "^3.2.0",
+    "rich-editor-to-markdown-parser": "^1.2.0"
+  }
+}
