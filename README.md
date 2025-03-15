@@ -9,6 +9,7 @@
 - createdAtのUNIXタイムスタンプをファイル名として保存
 - 記事のメタデータ（タイトル、日付、カテゴリー、タグなど）をfrontmatterとして保存
 - `htmls`配列内の各フィールドのコンテンツを適切に処理
+- iframeタグをそのまま保持（埋め込みコンテンツのサポート）
 
 ## 必要条件
 
@@ -71,6 +72,19 @@ npm start
      "content": "<p>HTMLコンテンツ</p>"
    }
    ```
+
+## 特殊なHTMLタグの処理
+
+このスクリプトは、以下の特殊なHTMLタグを適切に処理します：
+
+- **iframeタグ**: YouTubeやSpotifyなどの埋め込みコンテンツを含むiframeタグはそのまま保持されます。MDXファイル内でそのまま使用できます。
+
+例：
+```html
+<iframe src="https://www.youtube.com/embed/..." width="560" height="315" frameborder="0"></iframe>
+```
+
+は、そのままMDXファイルに出力されます。
 
 ## カスタマイズ
 

@@ -25,6 +25,60 @@ if (!fs.existsSync(OUTPUT_DIR)) {
 }
 
 /**
+ * HTML内のiframeタグを一時的に保存し、マーカーに置き換える関数
+ * @param {string} html HTMLコンテンツ
+ * @returns {Object} 処理済みHTMLと保存されたiframeタグの配列
+ */
+function preserveIframes(html) {
+  const iframes = [];
+  const iframeRegex = /<iframe[^>]*>[\s\S]*?<\/iframe>/gi;
+  
+  // iframeタグを見つけて保存し、マーカーに置き換える
+  const processedHtml = html.replace(iframeRegex, (match) => {
+    const placeholder = `__IFRAME_PLACEHOLDER_${iframes.length}__`;
+    iframes.push(match);
+    return placeholder;
+  });
+  
+  return { processedHtml, iframes };
+}
+
+/**
+ * マークダウン内のiframeプレースホルダーを元のiframeタグに戻す関数
+ * @param {string} markdown マークダウンコンテンツ
+ * @param {Array} iframes 保存されたiframeタグの配列
+ * @returns {string} iframeタグが戻された後のマークダウン
+ */
+function restoreIframes(markdown, iframes) {
+  let restoredMarkdown = markdown;
+  
+  iframes.forEach((iframe, index) => {
+    const placeholder = `__IFRAME_PLACEHOLDER_${index}__`;
+    restoredMarkdown = restoredMarkdown.replace(placeholder, iframe);
+  });
+  
+  return restoredMarkdown;
+}
+
+/**
+ * HTMLをMarkdownに変換する関数（iframeタグを保持）
+ * @param {string} html HTMLコンテンツ
+ * @returns {string} Markdownコンテンツ
+ */
+function parseHtmlToMarkdown(html) {
+  // iframeタグを保存してプレースホルダーに置き換える
+  const { processedHtml, iframes } = preserveIframes(html);
+  
+  // HTMLをMarkdownに変換
+  let markdown = parser(processedHtml);
+  
+  // iframeタグを元に戻す
+  markdown = restoreIframes(markdown, iframes);
+  
+  return markdown;
+}
+
+/**
  * microCMSから全ての記事を取得する関数
  */
 async function fetchAllArticles() {
@@ -125,15 +179,15 @@ function saveArticleAsMdx(article) {
         let htmlContent = html[fieldId]; // fieldIdの値に対応するプロパティからコンテンツを取得
         
         if (htmlContent) {
-          // コンテンツをMarkdownに変換して追加
-          markdownContent += parser(htmlContent) + '\n\n';
+          // コンテンツをMarkdownに変換して追加（iframeタグを保持）
+          markdownContent += parseHtmlToMarkdown(htmlContent) + '\n\n';
         }
       }
       
       content += markdownContent.trim();
     } else if (article.content) {
       // 従来のcontentプロパティが存在する場合の処理（互換性のため残す）
-      const markdownContent = parser(article.content);
+      const markdownContent = parseHtmlToMarkdown(article.content);
       content += markdownContent;
     }
 
