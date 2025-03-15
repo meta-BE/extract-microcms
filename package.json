@@ -1,17 +1,40 @@
 {
   "name": "extract-microcms",
   "version": "1.0.0",
+  "description": "microCMSから記事を取得してMDXファイルに変換するツール",
   "main": "index.js",
+  "bin": {
+    "extract-microcms": "./index.js"
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node index.js"
+    "start": "node index.js",
+    "build": "pkg . --out-path=dist",
+    "build:win": "pkg . --targets=node16-win-x64 --output=dist/extract-microcms-win.exe",
+    "build:mac": "pkg . --targets=node16-macos-x64 --output=dist/extract-microcms-mac",
+    "build:linux": "pkg . --targets=node16-linux-x64 --output=dist/extract-microcms-linux"
+  },
+  "pkg": {
+    "scripts": "index.js",
+    "assets": [
+      "node_modules/**/*"
+    ],
+    "targets": [
+      "node16-win-x64",
+      "node16-macos-x64",
+      "node16-linux-x64"
+    ]
   },
   "author": "",
   "license": "ISC",
-  "description": "",
   "dependencies": {
+    "commander": "^11.1.0",
     "dotenv": "^16.3.1",
     "microcms-js-sdk": "^3.2.0",
+    "node-fetch": "^2.6.9",
     "rich-editor-to-markdown-parser": "^1.2.0"
+  },
+  "devDependencies": {
+    "pkg": "^5.8.1"
   }
 }

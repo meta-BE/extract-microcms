@@ -1,28 +1,102 @@
+#!/usr/bin/env node
+
+// グローバルにfetch関連のオブジェクトを定義
+const fetch = require('node-fetch');
+global.Headers = fetch.Headers;
+global.Request = fetch.Request;
+global.Response = fetch.Response;
+global.fetch = fetch;
+
+// デバッグ情報を出力
+console.log('Fetch API初期化完了：', {
+  Headers: typeof global.Headers,
+  Request: typeof global.Request,
+  Response: typeof global.Response,
+  fetch: typeof global.fetch
+});
+
 const { createClient } = require('microcms-js-sdk');
 const { parser } = require("rich-editor-to-markdown-parser");
 const fs = require('fs');
 const path = require('path');
 const dotenv = require('dotenv');
+const { program } = require('commander');
+
+// コマンドライン引数の設定
+program
+  .name('extract-microcms')
+  .description('microCMSから記事を取得してMDXファイルに変換するツール')
+  .version('1.0.0')
+  .option('-o, --output <directory>', '出力先ディレクトリを指定', './output')
+  .option('-e, --endpoint <endpoint>', 'microCMSのエンドポイント名', 'articles')
+  .option('-d, --domain <domain>', 'microCMSのサービスドメイン（MICROCMS_SERVICE_DOMAINより優先）')
+  .option('-k, --api-key <key>', 'microCMSのAPIキー（MICROCMS_API_KEYより優先）')
+  .option('-v, --verbose', '詳細なログを出力する');
+
+program.parse(process.argv);
+
+const options = program.opts();
+
+// 詳細ログモード
+const isVerbose = options.verbose;
+
+if (isVerbose) {
+  console.log('実行オプション：', options);
+}
 
 // .envファイルを読み込む
 dotenv.config();
 
 // 出力ディレクトリの設定
-const OUTPUT_DIR = './output';
+const OUTPUT_DIR = options.output;
 
-// microCMSクライアントの初期化
-const client = createClient({
-  serviceDomain: process.env.MICROCMS_SERVICE_DOMAIN,
-  apiKey: process.env.MICROCMS_API_KEY,
-});
+// エンドポイントの設定
+const ENDPOINT = options.endpoint;
+
+// APIキーとサービスドメインの設定（コマンドライン > 環境変数の優先順位）
+const serviceDomain = options.domain || process.env.MICROCMS_SERVICE_DOMAIN;
+const apiKey = options.apiKey || process.env.MICROCMS_API_KEY;
+
+if (!serviceDomain || !apiKey) {
+  console.error('エラー: microCMSのサービスドメインとAPIキーが必要です。');
+  console.error('--domain と --api-key オプションか、環境変数で指定してください。');
+  process.exit(1);
+}
+
+/**
+ * microCMSクライアントの初期化処理
+ * @returns {Object} 初期化されたmicroCMSクライアント
+ */
+function setupClient() {
+  try {
+    console.log('microCMSクライアントの初期化中...');
+    const client = createClient({
+      serviceDomain,
+      apiKey,
+    });
+    console.log('microCMSクライアント初期化完了');
+    
+    // 出力ディレクトリの作成
+    if (!fs.existsSync(OUTPUT_DIR)) {
+      fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+    }
+    
+    return client;
+  } catch (error) {
+    console.error('microCMSクライアントの初期化に失敗しました:', error);
+    
+    // Headersエラーに関連する詳細情報を表示
+    if (error.message && error.message.includes('Headers')) {
+      console.error('Headers関連のエラーが検出されました。Fetch APIの初期化を確認してください。');
+      console.error('現在のHeaders:', typeof global.Headers);
+    }
+    
+    throw error; // エラーを再スローしてメイン処理でキャッチできるようにする
+  }
+}
 
 // HTMLをMarkdownに変換するパーサーの初期化
 // const parser = parser;
-
-// 出力ディレクトリの作成
-if (!fs.existsSync(OUTPUT_DIR)) {
-  fs.mkdirSync(OUTPUT_DIR, { recursive: true });
-}
 
 /**
  * HTML内のiframeタグを一時的に保存し、マーカーに置き換える関数
@@ -128,7 +202,7 @@ function parseHtmlToMarkdown(html) {
 /**
  * microCMSから全ての記事を取得する関数
  */
-async function fetchAllArticles() {
+async function fetchAllArticles(client) {
   let articles = [];
   let offset = 0;
   const limit = 100;
@@ -138,13 +212,34 @@ async function fetchAllArticles() {
 
   while (hasMore) {
     try {
-      const response = await client.get({
-        endpoint: 'articles', // エンドポイント名を適宜変更してください
-        queries: {
-          offset,
-          limit,
-        },
-      });
+      console.log(`記事を取得中... (offset: ${offset}, limit: ${limit})`);
+      
+      // APIリクエストとレスポンス処理を明示的にtry-catchで囲む
+      let response;
+      try {
+        response = await client.get({
+          endpoint: ENDPOINT, // コマンドラインオプションで指定したエンドポイント名を使用
+          queries: {
+            offset,
+            limit,
+          },
+        });
+        
+        if (isVerbose) {
+          console.log('APIレスポンス受信:', {
+            total: response.totalCount,
+            current: response.contents?.length || 0
+          });
+        }
+      } catch (apiError) {
+        console.error('APIリクエスト中にエラーが発生しました:', apiError);
+        // Headersエラーに関連する詳細情報を表示
+        if (apiError.message && apiError.message.includes('Headers')) {
+          console.error('Headers関連のエラーが検出されました。Fetch APIの初期化を確認してください。');
+          console.error('現在のHeaders:', typeof global.Headers);
+        }
+        throw apiError;
+      }
 
       if (response.contents.length > 0) {
         articles = [...articles, ...response.contents];
@@ -257,8 +352,14 @@ function saveArticleAsMdx(article) {
  */
 async function main() {
   try {
+    console.log(`出力先ディレクトリ: ${OUTPUT_DIR}`);
+    console.log(`microCMSエンドポイント: ${ENDPOINT}`);
+
+    // microCMSクライアントを初期化
+    const client = setupClient();
+
     // 全記事の取得
-    const articles = await fetchAllArticles();
+    const articles = await fetchAllArticles(client);
     
     if (articles.length === 0) {
       console.log('記事が見つかりませんでした。');
@@ -278,8 +379,14 @@ async function main() {
     console.log(`出力ディレクトリ: ${path.resolve(OUTPUT_DIR)}`);
   } catch (error) {
     console.error('エラーが発生しました:', error);
+    process.exit(1);
   }
 }
 
 // スクリプトの実行
-main(); 
+try {
+  main();
+} catch (error) {
+  console.error('エラーが発生しました:', error);
+  process.exit(1);
+} 
