@@ -10,6 +10,7 @@
 - 記事のメタデータ（タイトル、日付、カテゴリー、タグなど）をfrontmatterとして保存
 - `htmls`配列内の各フィールドのコンテンツを適切に処理
 - iframeタグをそのまま保持（埋め込みコンテンツのサポート）
+- 引用（blockquote）内の改行を正しく処理（複数行対応）
 
 ## 必要条件
 
@@ -79,12 +80,34 @@ npm start
 
 - **iframeタグ**: YouTubeやSpotifyなどの埋め込みコンテンツを含むiframeタグはそのまま保持されます。MDXファイル内でそのまま使用できます。
 
-例：
-```html
-<iframe src="https://www.youtube.com/embed/..." width="560" height="315" frameborder="0"></iframe>
-```
+  例：
+  ```html
+  <iframe src="https://www.youtube.com/embed/..." width="560" height="315" frameborder="0"></iframe>
+  ```
 
-は、そのままMDXファイルに出力されます。
+  は、そのままMDXファイルに出力されます。
+
+- **引用内の改行**: 引用（blockquote）内の改行（br）タグが正しく処理され、各行に引用マーカー`>`が付与されます。複数行の引用も適切に処理されます。
+
+  例：
+  ```html
+  <blockquote>嵐に怯えてるフリをして<br>空が割れるのを待っていたんだ<br>今も思い出してる</blockquote>
+  ```
+
+  は、以下のように出力されます：
+  ```markdown
+  > 嵐に怯えてるフリをして
+  > 空が割れるのを待っていたんだ
+  > 今も思い出してる
+  ```
+
+## コードの構造
+
+コードは以下のような機能別のモジュールに分割されています：
+
+- **メイン処理**: 記事の取得と変換を行う
+- **HTML解析と前処理**: 特殊なタグ（iframe, blockquote）を保持するための前処理
+- **Markdown変換後処理**: 特殊タグの復元と引用フォーマットの調整
 
 ## カスタマイズ
 
@@ -93,6 +116,7 @@ npm start
 - エンドポイント名（デフォルトは`articles`）
 - 出力ディレクトリ
 - Frontmatterの内容
+- HTML→Markdown変換の処理方法
 
 ## 注意事項
 

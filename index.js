@@ -61,7 +61,48 @@ function restoreIframes(markdown, iframes) {
 }
 
 /**
- * HTMLをMarkdownに変換する関数（iframeタグを保持）
+ * HTML内のblockquote内のbr要素を特殊なマーカーに置き換える関数
+ * @param {string} html HTMLコンテンツ
+ * @returns {string} 処理済みHTML
+ */
+function preserveQuoteLineBreaks(html) {
+  const blockquoteRegex = /<blockquote>([\s\S]*?)<\/blockquote>/gi;
+  
+  return html.replace(blockquoteRegex, (match, content) => {
+    // blockquote内のbr要素を特殊なマーカーに置き換え
+    const processedContent = content.replace(/<br\s*\/?>/gi, '__BLOCKQUOTE_LINE_BREAK__');
+    return `<blockquote>${processedContent}</blockquote>`;
+  });
+}
+
+/**
+ * Markdown内の引用行の特殊マーカーを正しい引用形式に置き換える関数
+ * @param {string} markdown マークダウンコンテンツ
+ * @returns {string} 処理済みマークダウン
+ */
+function restoreQuoteLineBreaks(markdown) {
+  let formattedMarkdown = '';
+  
+  // 行ごとに処理
+  markdown.split('\n').forEach(line => {
+    // 引用行の開始を検出
+    if (line.startsWith('> ')) {
+      // 行内の特殊マーカーをすべて改行+引用マーカーに置換
+      while (line.includes('__BLOCKQUOTE_LINE_BREAK__')) {
+        line = line.replace('__BLOCKQUOTE_LINE_BREAK__', '\n> ');
+      }
+      formattedMarkdown += line + '\n';
+    } else {
+      // 引用でない行はそのまま追加
+      formattedMarkdown += line + '\n';
+    }
+  });
+  
+  return formattedMarkdown;
+}
+
+/**
+ * HTMLをMarkdownに変換する関数（iframeタグとblockquote内の改行を保持）
  * @param {string} html HTMLコンテンツ
  * @returns {string} Markdownコンテンツ
  */
@@ -69,13 +110,19 @@ function parseHtmlToMarkdown(html) {
   // iframeタグを保存してプレースホルダーに置き換える
   const { processedHtml, iframes } = preserveIframes(html);
   
+  // blockquote内のbr要素を特殊なマーカーに置き換え
+  const preparedHtml = preserveQuoteLineBreaks(processedHtml);
+  
   // HTMLをMarkdownに変換
-  let markdown = parser(processedHtml);
+  let markdown = parser(preparedHtml);
+  
+  // 特殊マーカーを正しいMarkdown引用形式に置き換え
+  let formattedMarkdown = restoreQuoteLineBreaks(markdown);
   
   // iframeタグを元に戻す
-  markdown = restoreIframes(markdown, iframes);
+  formattedMarkdown = restoreIframes(formattedMarkdown, iframes);
   
-  return markdown;
+  return formattedMarkdown.trim();
 }
 
 /**
