@@ -216,6 +216,9 @@ function saveArticleAsMdx(article) {
       content += `toc_visible: ${article.toc_visible}\n`;
     }
 
+    // Frontmatterの終了
+    content += '---\n\n';
+
     // 本文を変換して追加
     if (article.htmls && article.htmls.length > 0) {
       let markdownContent = '';
