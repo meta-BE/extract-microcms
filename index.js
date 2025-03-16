@@ -176,16 +176,55 @@ function restoreQuoteLineBreaks(markdown) {
 }
 
 /**
- * HTMLをMarkdownに変換する関数（iframeタグとblockquote内の改行を保持）
+ * HTML内の文字実体参照を一時的に保存し、マーカーに置き換える関数
+ * @param {string} html HTMLコンテンツ
+ * @returns {Object} 処理済みHTMLと保存された文字実体参照の配列
+ */
+function preserveEntities(html) {
+  const entities = [];
+  const entityRegex = /&[a-zA-Z0-9#]+;/g;
+  
+  // 文字実体参照を見つけて保存し、マーカーに置き換える
+  const processedHtml = html.replace(entityRegex, (match) => {
+    const placeholder = `__ENTITY_PLACEHOLDER_${entities.length}__`;
+    entities.push(match);
+    return placeholder;
+  });
+  
+  return { processedHtml, entities };
+}
+
+/**
+ * マークダウン内の文字実体参照プレースホルダーを元の文字実体参照に戻す関数
+ * @param {string} markdown マークダウンコンテンツ
+ * @param {Array} entities 保存された文字実体参照の配列
+ * @returns {string} 文字実体参照が戻された後のマークダウン
+ */
+function restoreEntities(markdown, entities) {
+  let restoredMarkdown = markdown;
+  
+  entities.forEach((entity, index) => {
+    const placeholder = `__ENTITY_PLACEHOLDER_${index}__`;
+    restoredMarkdown = restoredMarkdown.replace(placeholder, entity);
+  });
+  
+  return restoredMarkdown;
+}
+
+/**
+ * HTMLをMarkdownに変換する関数（iframeタグ、blockquote内の改行、文字実体参照を保持）
  * @param {string} html HTMLコンテンツ
  * @returns {string} Markdownコンテンツ
  */
 function parseHtmlToMarkdown(html) {
+  // 文字実体参照を保存してプレースホルダーに置き換える
+  const { processedHtml: htmlWithEntities, entities } = preserveEntities(html);
+  
   // iframeタグを保存してプレースホルダーに置き換える
-  const { processedHtml, iframes } = preserveIframes(html);
+  const { processedHtml: htmlWithIframes, iframes } = preserveIframes(htmlWithEntities);
   
   // blockquote内のbr要素を特殊なマーカーに置き換え
-  const preparedHtml = preserveQuoteLineBreaks(processedHtml);
+  const preparedHtml = preserveQuoteLineBreaks(htmlWithIframes);
   
   // HTMLをMarkdownに変換
   let markdown = parser(preparedHtml);
@@ -195,6 +234,9 @@ function parseHtmlToMarkdown(html) {
   
   // iframeタグを元に戻す
   formattedMarkdown = restoreIframes(formattedMarkdown, iframes);
+  
+  // 文字実体参照を元に戻す
+  formattedMarkdown = restoreEntities(formattedMarkdown, entities);
   
   return formattedMarkdown.trim();
 }
