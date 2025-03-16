@@ -271,7 +271,7 @@ function saveArticleAsMdx(article) {
     // createdAtをUNIXタイムスタンプに変換
     const createdAt = new Date(article.createdAt);
     const timestamp = Math.floor(createdAt.getTime() / 1000);
-    const fileName = `${timestamp}.md`;
+    const fileName = `${timestamp}.mdx`;
     const filePath = path.join(OUTPUT_DIR, fileName);
 
     // 記事のコンテンツをHTMLからMarkdownに変換
