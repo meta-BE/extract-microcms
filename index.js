@@ -222,6 +222,16 @@ function restoreEntities(markdown, entities) {
 }
 
 /**
+ * コードブロックの言語指定を1行に整形する関数
+ * @param {string} markdown マークダウンコンテンツ
+ * @returns {string} 整形されたマークダウン
+ */
+function formatCodeBlocks(markdown) {
+  // コードブロックの開始部分を検出して整形
+  return markdown.replace(/```\s*\n\[(.*?)\]\n/g, '```$1\n');
+}
+
+/**
  * HTMLをMarkdownに変換する関数（iframeタグ、blockquote内の改行、文字実体参照を保持）
  * @param {string} html HTMLコンテンツ
  * @returns {string} Markdownコンテンツ
@@ -247,6 +257,9 @@ function parseHtmlToMarkdown(html) {
   
   // 文字実体参照を元に戻す
   formattedMarkdown = restoreEntities(formattedMarkdown, entities);
+  
+  // コードブロックの言語指定を1行に整形
+  formattedMarkdown = formatCodeBlocks(formattedMarkdown);
   
   return formattedMarkdown.trim();
 }
