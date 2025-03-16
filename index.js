@@ -184,11 +184,21 @@ function preserveEntities(html) {
   const entities = [];
   const entityRegex = /&[a-zA-Z0-9#]+;/g;
   
-  // 文字実体参照を見つけて保存し、マーカーに置き換える
-  const processedHtml = html.replace(entityRegex, (match) => {
+  // 全ての文字実体参照をプレースホルダーに置き換え
+  let processedHtml = html.replace(entityRegex, (match) => {
     const placeholder = `__ENTITY_PLACEHOLDER_${entities.length}__`;
     entities.push(match);
     return placeholder;
+  });
+  
+  // <pre>タグ内のプレースホルダーを元の文字実体参照に戻す
+  processedHtml = processedHtml.replace(/<pre[^>]*>[\s\S]*?<\/pre>/g, (match) => {
+    let restoredMatch = match;
+    entities.forEach((entity, index) => {
+      const placeholder = `__ENTITY_PLACEHOLDER_${index}__`;
+      restoredMatch = restoredMatch.replace(placeholder, entity);
+    });
+    return restoredMatch;
   });
   
   return { processedHtml, entities };
@@ -365,9 +375,15 @@ function saveArticleAsMdx(article) {
         const fieldId = html.fieldId;
         let htmlContent = html[fieldId]; // fieldIdの値に対応するプロパティからコンテンツを取得
         
-        if (htmlContent) {
-          // コンテンツをMarkdownに変換して追加（iframeタグを保持）
+        if (!htmlContent) {
+          console.log('htmlContentが空です。記事タイムスタンプ:', timestamp);
+          continue;
+        }
+        if (fieldId === 'rich') {
+          // コンテンツをMarkdownに変換して追加
           markdownContent += parseHtmlToMarkdown(htmlContent) + '\n\n';
+        } else if (fieldId === 'plane') {
+          markdownContent += htmlContent + '\n\n';
         }
       }
       
