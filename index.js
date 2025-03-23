@@ -95,45 +95,6 @@ function setupClient() {
   }
 }
 
-// HTMLをMarkdownに変換するパーサーの初期化
-// const parser = parser;
-
-/**
- * HTML内のiframeタグを一時的に保存し、マーカーに置き換える関数
- * @param {string} html HTMLコンテンツ
- * @returns {Object} 処理済みHTMLと保存されたiframeタグの配列
- */
-function preserveIframes(html) {
-  const iframes = [];
-  const iframeRegex = /<iframe[^>]*>[\s\S]*?<\/iframe>/gi;
-  
-  // iframeタグを見つけて保存し、マーカーに置き換える
-  const processedHtml = html.replace(iframeRegex, (match) => {
-    const placeholder = `__IFRAME_PLACEHOLDER_${iframes.length}__`;
-    iframes.push(match);
-    return placeholder;
-  });
-  
-  return { processedHtml, iframes };
-}
-
-/**
- * マークダウン内のiframeプレースホルダーを元のiframeタグに戻す関数
- * @param {string} markdown マークダウンコンテンツ
- * @param {Array} iframes 保存されたiframeタグの配列
- * @returns {string} iframeタグが戻された後のマークダウン
- */
-function restoreIframes(markdown, iframes) {
-  let restoredMarkdown = markdown;
-  
-  iframes.forEach((iframe, index) => {
-    const placeholder = `__IFRAME_PLACEHOLDER_${index}__`;
-    restoredMarkdown = restoredMarkdown.replace(placeholder, iframe);
-  });
-  
-  return restoredMarkdown;
-}
-
 /**
  * HTML内のblockquote内のbr要素を特殊なマーカーに置き換える関数
  * @param {string} html HTMLコンテンツ
@@ -150,49 +111,13 @@ function preserveQuoteLineBreaks(html) {
 }
 
 /**
- * HTML内のol要素を一時的に保存し、マーカーに置き換える関数
- * @param {string} html HTMLコンテンツ
- * @returns {Object} 処理済みHTMLと保存されたolタグの配列
- */
-function preserveOrderedLists(html) {
-  const orderedLists = [];
-  const orderedListRegex = /<ol[^>]*>[\s\S]*?<\/ol>/gi;
-
-  // olタグを見つけて保存し、マーカーに置き換える
-  const processedHtml = html.replace(orderedListRegex, (match) => {
-    const placeholder = `__ORDERED_LIST_PLACEHOLDER_${orderedLists.length}__`;
-    orderedLists.push(match);
-    return placeholder;
-  });
-
-  return { processedHtml, orderedLists };
-}
-
-/**
- * マークダウン内のolプレースホルダーを元のiframeタグに戻す関数
- * @param {string} markdown マークダウンコンテンツ
- * @param {Array} OrderedLists 保存されたolタグの配列
- * @returns {string} olタグが戻された後のマークダウン
- */
-function restoreOrderedLists(markdown, OrderedLists) {
-  let restoredMarkdown = markdown;
-
-  OrderedLists.forEach((orderedList, index) => {
-    const placeholder = `__ORDERED_LIST_PLACEHOLDER_${index}__`;
-    restoredMarkdown = restoredMarkdown.replace(placeholder, orderedList);
-  });
-
-  return restoredMarkdown;
-}
-
-/**
  * Markdown内の引用行の特殊マーカーを正しい引用形式に置き換える関数
  * @param {string} markdown マークダウンコンテンツ
  * @returns {string} 処理済みマークダウン
  */
 function restoreQuoteLineBreaks(markdown) {
   let formattedMarkdown = '';
-  
+
   // 行ごとに処理
   markdown.split('\n').forEach(line => {
     // 引用行の開始を検出
@@ -207,8 +132,50 @@ function restoreQuoteLineBreaks(markdown) {
       formattedMarkdown += line + '\n';
     }
   });
-  
+
   return formattedMarkdown;
+}
+
+
+/**
+ * HTML内の特定のタグを一時的に保存し、マーカーに置き換える関数
+ * @param {string} html HTMLコンテンツ
+ * @returns {Object} 処理済みHTMLと保存されたタグの配列
+ */
+function preserveTags(html) {
+  const tags = [];
+  const iframeRegex = /<iframe[^>]*>[\s\S]*?<\/iframe>/gi;
+  const orderedListRegex = /<ol[^>]*>[\s\S]*?<\/ol>/gi;
+  const spanRegex = /<span[^>]*>[\s\S]*?<\/span>/gi;
+
+  // マッチしたタグを置き換えて保存
+  const replacer = (match) => {
+    const placeholder = `__TAG_PLACEHOLDER_${tags.length}__`;
+    tags.push(match);
+    return placeholder;
+  }
+
+  const processedHtml = html.replace(iframeRegex, replacer)
+      .replace(orderedListRegex, replacer)
+      .replace(spanRegex, replacer);
+  return { processedHtml, tags };
+}
+
+/**
+ * マークダウン内のプレースホルダーを元のタグに戻す関数
+ * @param {string} markdown マークダウンコンテンツ
+ * @param {Array} tags 保存されたタグの配列
+ * @returns {string} タグが戻された後のマークダウン
+ */
+function restoreTags(markdown, tags) {
+  let restoredMarkdown = markdown;
+
+  tags.forEach((tag, index) => {
+    const placeholder = `__TAG_PLACEHOLDER_${index}__`;
+    restoredMarkdown = restoredMarkdown.replace(placeholder, tag);
+  });
+
+  return restoredMarkdown;
 }
 
 /**
@@ -276,14 +243,11 @@ function parseHtmlToMarkdown(html) {
   // 文字実体参照を保存してプレースホルダーに置き換える
   const { processedHtml: htmlWithEntities, entities } = preserveEntities(html);
 
-  // iframeタグを保存してプレースホルダーに置き換える
-  const { processedHtml: htmlWithIframes, iframes } = preserveIframes(htmlWithEntities);
-
-  // olタグを保存してプレースホルダーに置き換える
-  const { processedHtml: htmlWithOrderedLists, orderedLists } = preserveOrderedLists(htmlWithIframes);
+  // Markdownに変換すると消えるタグを保存してプレースホルダーに置き換える
+  const { processedHtml: htmlWithoutTags, tags } = preserveTags(htmlWithEntities);
   
   // blockquote内のbr要素を特殊なマーカーに置き換え
-  const preparedHtml = preserveQuoteLineBreaks(htmlWithOrderedLists);
+  const preparedHtml = preserveQuoteLineBreaks(htmlWithoutTags);
   
   // HTMLをMarkdownに変換
   let markdown = parser(preparedHtml);
@@ -291,12 +255,9 @@ function parseHtmlToMarkdown(html) {
   // blockquoteマーカーを元に戻す
   let formattedMarkdown = restoreQuoteLineBreaks(markdown);
 
-  // olタグを元に戻す
-  formattedMarkdown = restoreOrderedLists(formattedMarkdown, orderedLists);
-  
-  // iframeタグを元に戻す
-  formattedMarkdown = restoreIframes(formattedMarkdown, iframes);
-  
+  // タグを元に戻す
+  formattedMarkdown = restoreTags(formattedMarkdown, tags);
+
   // 文字実体参照を元に戻す
   formattedMarkdown = restoreEntities(formattedMarkdown, entities);
   
