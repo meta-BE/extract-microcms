@@ -260,6 +260,9 @@ function parseHtmlToMarkdown(html) {
   
   // コードブロックの言語指定を1行に整形
   formattedMarkdown = formatCodeBlocks(formattedMarkdown);
+
+  // nbspを置換
+  formattedMarkdown = formattedMarkdown.replace(/ /g, ' ');
   
   return formattedMarkdown.trim();
 }
