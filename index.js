@@ -141,12 +141,48 @@ function restoreIframes(markdown, iframes) {
  */
 function preserveQuoteLineBreaks(html) {
   const blockquoteRegex = /<blockquote>([\s\S]*?)<\/blockquote>/gi;
-  
+
   return html.replace(blockquoteRegex, (match, content) => {
     // blockquote内のbr要素を特殊なマーカーに置き換え
     const processedContent = content.replace(/<br\s*\/?>/gi, '__BLOCKQUOTE_LINE_BREAK__');
     return `<blockquote>${processedContent}</blockquote>`;
   });
+}
+
+/**
+ * HTML内のol要素を一時的に保存し、マーカーに置き換える関数
+ * @param {string} html HTMLコンテンツ
+ * @returns {Object} 処理済みHTMLと保存されたolタグの配列
+ */
+function preserveOrderedLists(html) {
+  const orderedLists = [];
+  const orderedListRegex = /<ol[^>]*>[\s\S]*?<\/ol>/gi;
+
+  // olタグを見つけて保存し、マーカーに置き換える
+  const processedHtml = html.replace(orderedListRegex, (match) => {
+    const placeholder = `__ORDERED_LIST_PLACEHOLDER_${orderedLists.length}__`;
+    orderedLists.push(match);
+    return placeholder;
+  });
+
+  return { processedHtml, orderedLists };
+}
+
+/**
+ * マークダウン内のolプレースホルダーを元のiframeタグに戻す関数
+ * @param {string} markdown マークダウンコンテンツ
+ * @param {Array} OrderedLists 保存されたolタグの配列
+ * @returns {string} olタグが戻された後のマークダウン
+ */
+function restoreOrderedLists(markdown, OrderedLists) {
+  let restoredMarkdown = markdown;
+
+  OrderedLists.forEach((orderedList, index) => {
+    const placeholder = `__ORDERED_LIST_PLACEHOLDER_${index}__`;
+    restoredMarkdown = restoredMarkdown.replace(placeholder, orderedList);
+  });
+
+  return restoredMarkdown;
 }
 
 /**
@@ -239,18 +275,24 @@ function formatCodeBlocks(markdown) {
 function parseHtmlToMarkdown(html) {
   // 文字実体参照を保存してプレースホルダーに置き換える
   const { processedHtml: htmlWithEntities, entities } = preserveEntities(html);
-  
+
   // iframeタグを保存してプレースホルダーに置き換える
   const { processedHtml: htmlWithIframes, iframes } = preserveIframes(htmlWithEntities);
+
+  // olタグを保存してプレースホルダーに置き換える
+  const { processedHtml: htmlWithOrderedLists, orderedLists } = preserveOrderedLists(htmlWithIframes);
   
   // blockquote内のbr要素を特殊なマーカーに置き換え
-  const preparedHtml = preserveQuoteLineBreaks(htmlWithIframes);
+  const preparedHtml = preserveQuoteLineBreaks(htmlWithOrderedLists);
   
   // HTMLをMarkdownに変換
   let markdown = parser(preparedHtml);
   
-  // 特殊マーカーを正しいMarkdown引用形式に置き換え
+  // blockquoteマーカーを元に戻す
   let formattedMarkdown = restoreQuoteLineBreaks(markdown);
+
+  // olタグを元に戻す
+  formattedMarkdown = restoreOrderedLists(formattedMarkdown, orderedLists);
   
   // iframeタグを元に戻す
   formattedMarkdown = restoreIframes(formattedMarkdown, iframes);
