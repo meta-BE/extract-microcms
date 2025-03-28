@@ -266,7 +266,10 @@ function parseHtmlToMarkdown(html) {
 
   // nbspを置換
   formattedMarkdown = formattedMarkdown.replace(/ /g, ' ');
-  
+
+  // italicとboldを正規化
+  formattedMarkdown = formattedMarkdown.replace(/\*\*\*\*/g, '**');
+
   return formattedMarkdown.trim();
 }
 
