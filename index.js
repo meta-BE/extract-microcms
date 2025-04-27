@@ -342,10 +342,13 @@ async function fetchAllArticles(client) {
  */
 function saveArticleAsMdx(article) {
   try {
-    // createdAtをUNIXタイムスタンプに変換
-    const createdAt = new Date(article.createdAt);
-    const timestamp = Math.floor(createdAt.getTime() / 1000);
-    const fileName = `${timestamp}.mdx`;
+    // publishedAt, createdAtをUNIXタイムスタンプに変換
+    const timestamp = (!!article.publishedAt)
+        ? Math.floor(new Date(article.publishedAt).getTime() / 1000)
+        : Math.floor(new Date(article.createdAt).getTime() / 1000);
+    const fileName = (!!article.publishedAt)
+        ? `${timestamp}.mdx`
+        : `${timestamp}_draft.mdx`;
     const filePath = path.join(OUTPUT_DIR, fileName);
 
     // 記事のコンテンツをHTMLからMarkdownに変換
